@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=77.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-offline"
+version = "1.0.0"
+description = "Offline-first extension for Hermes Agent — full feature parity via Ollama, zero API keys, zero subscriptions"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "hermes-offline contributors" }]
+license = "MIT"
+keywords = ["hermes", "ollama", "offline", "local-llm", "qwen3", "llama", "privacy"]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: System :: Distributed Computing",
+]
+dependencies = [
+  "hermes-agent>=0.16.0",
+  "pyyaml>=6.0",
+  "psutil>=6.0.0",
+  "rich>=14.0.0",
+]
+
+[project.optional-dependencies]
+tts        = ["piper-tts>=1.2.0"]
+whisper    = ["faster-whisper>=1.0.0"]
+embeddings = ["sqlite-vec>=0.1.0"]
+evolution  = ["dspy-ai>=2.4.0"]
+all = [
+  "piper-tts>=1.2.0",
+  "faster-whisper>=1.0.0",
+  "sqlite-vec>=0.1.0",
+  "dspy-ai>=2.4.0",
+]
+
+[project.urls]
+Homepage      = "https://github.com/CodeHorizon-design/Hermes-Offline"
+Documentation = "https://github.com/CodeHorizon-design/Hermes-Offline#readme"
+Issues        = "https://github.com/CodeHorizon-design/Hermes-Offline/issues"
+
+[project.scripts]
+# ── Core ─────────────────────────────────────────────────────────────────────
+hermes-offline             = "hermes_offline.entrypoint:main"
+hermes-offline-setup       = "hermes_offline.setup:main"
+hermes-offline-patch       = "hermes_offline.patch:main"
+hermes-offline-bench       = "hermes_offline.benchmark:main"
+# ── Maintenance ──────────────────────────────────────────────────────────────
+hermes-offline-update      = "hermes_offline.updater:main"
+hermes-offline-status      = "hermes_offline.detector:_cli_status"
+hermes-offline-modelfile   = "hermes_offline.modelfile:main"
+# ── Self-evolution ────────────────────────────────────────────────────────────
+hermes-offline-evolve      = "hermes_offline.evolution:main"
+# ── Phase 6: Testing & Release ───────────────────────────────────────────────
+hermes-offline-test-parity = "hermes_offline.test_parity:main"
+hermes-offline-compat-matrix = "hermes_offline.compat_matrix:main"
+hermes-offline-hub-submit  = "hermes_offline.hermeshub_skill:main"
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["hermes_offline*"]
+
+[tool.setuptools.package-data]
+hermes_offline = ["modelfiles/*.Modelfile"]

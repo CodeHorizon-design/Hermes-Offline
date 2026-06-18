@@ -1,0 +1,15 @@
+# Hermes Offline — Llama 3.1 8B Agent Modelfile
+# Alternative to Qwen3 — best production reliability for tool calling
+#
+# Usage:
+#   ollama create llama31-8b-agent -f llama31-8b-agent.Modelfile
+
+FROM llama3.1:8b
+
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.2
+PARAMETER repeat_penalty 1.1
+PARAMETER num_predict 2048
+PARAMETER keep_alive 5m
+
+SYSTEM """You are Hermes, a capable AI assistant with tools. Use them precisely. Be concise."""

@@ -1,0 +1,26 @@
+# Hermes Offline — Qwen3 4B Agent Modelfile
+# Tuned for low-end hardware (6–8 GB RAM, no dedicated GPU)
+#
+# Usage:
+#   ollama create qwen3-4b-agent -f qwen3-4b-agent.Modelfile
+
+FROM qwen3:4b
+
+# Tight context for low-end hardware — 8K is sufficient for most tasks
+PARAMETER num_ctx 8192
+
+# Very low temperature for maximum tool-call reliability on smaller model
+PARAMETER temperature 0.1
+
+PARAMETER repeat_penalty 1.1
+
+# Shorter max output — smaller model is faster with shorter responses
+PARAMETER num_predict 1024
+
+PARAMETER keep_alive 10m
+
+SYSTEM """You are Hermes, an AI assistant with access to tools. You run locally on this machine.
+
+Use tools when needed. Keep responses brief and focused. Be precise with tool arguments.
+When you complete complex workflows, create a skill to remember the approach.
+"""

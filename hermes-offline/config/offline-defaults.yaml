@@ -1,0 +1,119 @@
+# Hermes Agent — Offline-First Default Configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# This file is the template written to ~/.hermes/config.yaml by hermes-offline-setup.
+# You can also copy it manually: cp offline-defaults.yaml ~/.hermes/config.yaml
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Provider ─────────────────────────────────────────────────────────────────
+# Uses local Ollama endpoint. No API key needed.
+# Switch model with: hermes model
+provider: ollama-local
+model:
+  default: qwen3:8b           # Change to qwen3:4b for 8 GB RAM, qwen3:1.7b for 4 GB
+endpoint: http://127.0.0.1:11434/v1
+api_key: ollama
+stream: true
+
+# ── Context management (tuned for local LLMs) ─────────────────────────────
+# Local models degrade faster near context limits than cloud models.
+# Compressing earlier preserves quality.
+context:
+  compression_threshold: 0.70    # Compress at 70% full (cloud default is 85%)
+  max_tool_output_chars: 2000    # Cap tool results — local models don't need huge dumps
+  summary_on_compress: true      # Inject 3-sentence summary after compression
+
+# ── Web search (no API key required) ──────────────────────────────────────
+# DuckDuckGo HTML scraper — free, reliable, no key
+web:
+  backend: duckduckgo
+  # Uncomment if you run a local SearXNG instance (better privacy + results):
+  # backend: searxng
+  # searxng_url: http://localhost:8080
+
+# ── TTS ───────────────────────────────────────────────────────────────────
+# piper-tts: fast CPU inference, MIT license, no internet needed
+# edge-tts: Microsoft Edge voices, free but needs internet
+# none: disable TTS
+tts:
+  provider: piper                # Change to 'edge' if piper not installed
+  voice: en_US-lessac-medium     # Run `piper --list-voices` for all options
+
+# ── Voice transcription ──────────────────────────────────────────────────
+# faster-whisper: local Whisper, no API key, runs on CPU
+voice:
+  transcription_backend: faster-whisper    # Install: pip install faster-whisper
+  whisper_model: turbo                     # Fastest; or 'small', 'base', 'tiny'
+  language: en
+
+# ── Memory ───────────────────────────────────────────────────────────────
+# SQLite FTS5 is always available — no setup needed.
+# sqlite-vec enables semantic/vector memory (install: pip install sqlite-vec)
+memory:
+  backend: sqlite_fts5
+  # Enable semantic memory (requires sqlite-vec + nomic-embed-text in Ollama):
+  # semantic_backend: sqlite_vec
+  # embedding_model: nomic-embed-text
+  # embedding_endpoint: http://127.0.0.1:11434
+
+# ── Skills ────────────────────────────────────────────────────────────────
+# Hermes creates and improves skills autonomously.
+# All skills are stored in ~/.hermes/skills/
+skills:
+  write_approval: false          # Set to true to review skill changes before saving
+
+# ── Image generation ─────────────────────────────────────────────────────
+# ComfyUI / A1111: local Stable Diffusion (auto-detected if running)
+# ollama-vision: use vision model for image understanding (no generation)
+image_generation:
+  provider: none                 # Set to 'comfyui' if ComfyUI is running
+  # comfyui_url: http://127.0.0.1:8188
+  # a1111_url: http://127.0.0.1:7860
+
+# ── Session cost tracker ─────────────────────────────────────────────────
+# After each turn: prints tokens, tok/s, context fill %, RAM, session time.
+# On exit: prints a full session summary.
+# Override per-session: hermes-offline --no-track / --no-status / --no-summary
+tracker:
+  enabled: true
+  status_line: true       # dim status line after each assistant turn
+  summary_on_exit: true   # full summary when you quit hermes
+  show_tui_footer: true   # live footer bar in --tui mode
+
+# ── Qwen3 thinking mode ──────────────────────────────────────────────────
+# Qwen3 supports chain-of-thought reasoning via /think tag injection.
+# 'auto' mode enables it only for complex multi-step tasks (recommended).
+# Override per-session: hermes-offline --think / --no-think
+think:
+  mode: auto      # auto | always | never
+  show: false     # show <think> blocks in the terminal (noisy but informative)
+  threshold: 3    # complexity score 1-10 that triggers thinking in auto mode
+                  # lower = think more often, higher = only for hard tasks
+
+# ── Self-evolution ───────────────────────────────────────────────────────
+# Lightweight mode uses real session history instead of synthetic eval data.
+# Works well even with small local models.
+evolution:
+  mode: lightweight
+  population_size: 2             # Reduce from 5 to 2 for low-end hardware
+
+# ── Ollama model options ─────────────────────────────────────────────────
+# These are applied via a generated Modelfile (hermes-offline-setup creates it).
+# See hermes_offline/modelfiles/ for pre-built templates.
+ollama_options:
+  num_ctx: 16384                 # Context window — reduce to 4096-8192 on low-end
+  temperature: 0.2               # Low for reliable tool calls
+  repeat_penalty: 1.1
+  num_predict: 2048              # Max output tokens per turn
+
+# ── Gateway (optional) ───────────────────────────────────────────────────
+# Connect messaging platforms. User provides their own free bot tokens.
+# Setup: hermes gateway setup
+gateway:
+  enabled: false
+
+# ── MCP servers (optional) ───────────────────────────────────────────────
+# Add local MCP servers here for extended capabilities.
+# mcp_servers:
+#   filesystem:
+#     command: npx
+#     args: ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/projects"]

@@ -1,0 +1,42 @@
+# Hermes Offline — Qwen3 8B Agent Modelfile
+# Tuned for reliable tool calling on mid-tier hardware (8–16 GB RAM)
+#
+# Usage:
+#   ollama create qwen3-8b-agent -f qwen3-8b-agent.Modelfile
+#   hermes model → select qwen3-8b-agent
+
+FROM qwen3:8b
+
+# Context window: 16K is a good balance for 8 GB VRAM
+# Lower than the model's max (32K) to reduce memory pressure
+PARAMETER num_ctx 16384
+
+# Low temperature for reliable, deterministic tool calls
+# Higher temperature causes JSON format errors in tool arguments
+PARAMETER temperature 0.2
+
+# Slightly reduce repetition without hurting tool call format
+PARAMETER repeat_penalty 1.1
+
+# Cap output length — agentic tools should be concise
+PARAMETER num_predict 2048
+
+# Keep model loaded for 5 minutes (balances reuse vs memory)
+PARAMETER keep_alive 5m
+
+# Thinking mode: hermes-offline injects /think or /no_think automatically.
+# You can also type /think at the start of any message to force chain-of-thought.
+# <think> blocks are stripped by hermes-offline before tool parsing — safe to use.
+
+SYSTEM """You are Hermes, a highly capable AI assistant with access to powerful tools. You run entirely locally on the user's machine.
+
+Core principles:
+- Always use the provided tools when a task requires external information, file operations, or code execution
+- Be precise with tool arguments — provide exactly the required fields, no more
+- Keep responses concise unless the user asks for detail
+- When unsure whether to call a tool, lean toward calling it — you can verify and correct
+- You have persistent memory across sessions — use it to improve over time
+- You can create skills from complex workflows you discover — do so when you solve something non-trivial
+
+You run offline with no cloud dependencies. All tools, memory, and skills persist locally.
+"""

@@ -1,0 +1,22 @@
+# Hermes Offline — Qwen3 1.7B Agent Modelfile
+# Ultra-low-end hardware (4 GB RAM, CPU-only)
+#
+# Usage:
+#   ollama create qwen3-1.7b-agent -f qwen3-1.7b-agent.Modelfile
+
+FROM qwen3:1.7b
+
+# Very tight context — essential for CPU-only 4 GB RAM machines
+PARAMETER num_ctx 4096
+
+# Lowest temperature — smallest models need most deterministic tool calls
+PARAMETER temperature 0.05
+
+PARAMETER repeat_penalty 1.15
+
+PARAMETER num_predict 512
+
+# Keep loaded — reloading a model on CPU is expensive (30-60s)
+PARAMETER keep_alive 30m
+
+SYSTEM """You are Hermes, an AI assistant. Use available tools. Be brief. Be precise."""
