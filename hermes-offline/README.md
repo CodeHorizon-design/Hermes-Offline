@@ -1,346 +1,930 @@
 # Hermes Agent — Offline Edition
 
-> Every feature of [Hermes Agent](https://github.com/NousResearch/hermes-agent) · Zero API keys · Zero subscriptions · Runs entirely on your machine via [Ollama](https://ollama.com)
+> **Every feature of [Hermes Agent](https://github.com/NousResearch/hermes-agent) · Zero API keys · Zero subscriptions · Runs entirely on your machine**
+
+Hermes Offline is a thin extension package that re-targets Hermes Agent at a local [Ollama](https://ollama.com) instance instead of cloud APIs. All 71+ built-in tools, the memory system, skills hub, MCP, TUI, cron scheduler, and ACP server work exactly as before — no features removed, no cloud required.
 
 ---
 
-## What This Is
+## Table of Contents
 
-A lightweight extension package for Hermes Agent v0.16+ that:
-
-- Registers `ollama-local` as a first-class provider pointing to your local Ollama instance (`http://127.0.0.1:11434/v1`)
-- Auto-detects your hardware and recommends the best local model for your machine
-- Applies performance tuning for small local LLMs (context compression at 70%, tool output capping, optimized Modelfiles)
-- Replaces cloud-only web search with free no-key backends (DuckDuckGo, Wikipedia, SearXNG)
-- Sets local TTS (piper-tts) and transcription (faster-whisper) as defaults
-- Provides optimized Modelfiles for reliable tool-calling on low-end hardware
-
-**Every single feature of Hermes Agent is preserved.** This is a thin configuration and patching layer — not a fork.
-
----
-
-## Features Preserved (All 71+ Tools)
-
-| Category | Tools | Offline? |
-|----------|-------|---------|
-| Browser automation | 12 tools (Playwright) | ✅ Always local |
-| File operations | 4 tools | ✅ Always local |
-| Terminal execution | 2 tools | ✅ Always local |
-| Memory system | FTS5 + optional sqlite-vec | ✅ Local SQLite |
-| Skills system | Full create/edit/evolve | ✅ Local files |
-| Skills Hub (HermesHub) | Browse/install community skills | ✅ Free skills |
-| MCP client + server | All MCP tools | ✅ Local stdio/HTTP |
-| ACP (IDE integration) | VS Code, Zed, JetBrains | ✅ Local process |
-| Messaging gateway | 20+ platforms | ✅ User's free tokens |
-| TUI + CLI | Full interface | ✅ No change |
-| Cron scheduler | All scheduled tasks | ✅ No change |
-| Web search | DuckDuckGo / Wikipedia / SearXNG | ✅ No key needed |
-| Voice TTS | piper-tts (local) | ✅ No key needed |
-| Transcription | faster-whisper (local) | ✅ No key needed |
-| Image generation | ComfyUI / A1111 (if running) | ✅ Optional |
-| Self-evolution | DSPy + GEPA lightweight mode | ✅ Local session history |
+1. [What's included](#whats-included)
+2. [Requirements](#requirements)
+3. [Hardware tiers & model recommendations](#hardware-tiers--model-recommendations)
+4. [Installation — Windows](#installation--windows)
+5. [Installation — Linux](#installation--linux)
+6. [Installation — macOS](#installation--macos)
+7. [Manual installation (all platforms)](#manual-installation-all-platforms)
+8. [Post-install verification](#post-install-verification)
+9. [First run](#first-run)
+10. [Optional features](#optional-features)
+11. [Configuration reference](#configuration-reference)
+12. [CLI reference](#cli-reference)
+13. [Thinking mode (Qwen3)](#thinking-mode-qwen3)
+14. [Session cost tracker](#session-cost-tracker)
+15. [Optimized Modelfiles](#optimized-modelfiles)
+16. [Semantic memory](#semantic-memory)
+17. [Self-evolution (DSPy)](#self-evolution-dspy)
+18. [Ollama performance tuning](#ollama-performance-tuning)
+19. [Updating](#updating)
+20. [Troubleshooting](#troubleshooting)
+21. [vs. Cloud Hermes Agent](#vs-cloud-hermes-agent)
+22. [Architecture](#architecture)
+23. [Credits](#credits)
 
 ---
 
-## Quick Start
+## What's included
 
-### Prerequisites
-
-- Python 3.11–3.13 (auto-installed on Windows if missing)
-- 4 GB+ RAM (8+ GB recommended)
+| Category | Works offline? | Notes |
+|----------|---------------|-------|
+| All 71+ built-in tools | ✅ Always | File, terminal, browser (Playwright), memory, skills, MCP, etc. |
+| Browser automation (12 tools) | ✅ Always | Playwright runs locally |
+| Web search | ✅ No key needed | DuckDuckGo · Wikipedia · SearXNG (self-hosted) |
+| Memory — keyword (FTS5) | ✅ Always | SQLite built-in |
+| Memory — semantic (vector) | ✅ Optional | `sqlite-vec` + `nomic-embed-text` |
+| Voice TTS | ✅ Optional | `piper-tts` — fully local |
+| Voice transcription | ✅ Optional | `faster-whisper` — fully local |
+| Image generation | ✅ Optional | ComfyUI or Automatic1111 if running |
+| Skills system + HermesHub | ✅ Always | Local files + free community skills |
+| MCP client / server | ✅ Always | Local stdio / HTTP |
+| ACP (IDE integration) | ✅ Always | VS Code, Zed, JetBrains |
+| Messaging gateway | ✅ Always | 20+ platforms, user's own tokens |
+| TUI + CLI | ✅ Always | Identical to cloud edition |
+| Cron scheduler | ✅ Always | Local process |
+| Self-evolution (DSPy) | ✅ Optional | Lightweight mode, local session history |
+| Session cost tracker | ✅ Always | tok/s, RAM, context%, per-turn stats |
+| Chain-of-thought thinking | ✅ Always | Qwen3 `/think` mode |
 
 ---
 
-### Windows — One Command
+## Requirements
 
-**Double-click `install-windows.bat`**, or paste this into PowerShell:
+| Requirement | Version | Notes |
+|-------------|---------|-------|
+| Python | 3.11 – 3.13 | Auto-installed on Windows if missing |
+| Ollama | Latest | Local LLM server — [ollama.com](https://ollama.com) |
+| RAM | 4 GB minimum | 8 GB+ recommended |
+| Disk | 2 – 20 GB | For the model (size depends on tier) |
+| OS | Windows 10+, Linux, macOS 12+ | |
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass; .\install-windows.bat
+> **No API keys, no accounts, no subscriptions required.**
+
+---
+
+## Hardware tiers & model recommendations
+
+The setup wizard auto-detects your hardware and recommends the best model. Here is the full matrix:
+
+| Tier | RAM | VRAM | Recommended model | Pull command | Download size |
+|------|-----|------|-------------------|-------------|--------------|
+| Ultra Low | 4 GB | 0 | `qwen3:1.7b` | `ollama pull qwen3:1.7b` | 1.1 GB |
+| Low | 8 GB | 0 | `qwen3:4b` | `ollama pull qwen3:4b` | 2.6 GB |
+| Mid | 16 GB | 0–8 GB | `qwen3:8b` | `ollama pull qwen3:8b` | 5.2 GB |
+| Good | 16 GB | 8 GB | `qwen2.5-coder:14b` | `ollama pull qwen2.5-coder:14b` | 9.0 GB |
+| Great | 32 GB+ | 16 GB+ | `qwen3-coder:30b` | `ollama pull qwen3-coder:30b` | 19 GB |
+
+**Why Qwen3?** Best tool/function-calling accuracy at every size tier, native parallel tool call support, rarely hallucinates tool calls, MIT license.
+
+---
+
+## Installation — Windows
+
+### Option A: Double-click installer (recommended)
+
+1. [Download or clone this repository](https://github.com/CodeHorizon-design/Hermes-Offline)
+2. Open the downloaded folder
+3. **Double-click `install-windows.bat`**
+
+The installer will:
+- Install Python 3.12 if missing (via `winget` or python.org — no admin required)
+- Install `uv` (fast package manager)
+- Install Ollama for Windows (via `winget` or direct download)
+- Install `hermes-agent` and `hermes-offline`
+- Run the interactive setup wizard (hardware detection → model recommendation → model pull → config write)
+- Create a **Desktop shortcut** and **Start Menu entry**
+- Optionally add Ollama to Windows startup
+
+After install: double-click **Hermes (Offline)** on your Desktop, or open any terminal and run:
 ```
-
-The installer automatically:
-- Installs Python 3.12 if missing (via `winget` or python.org)
-- Installs `uv` (fast package manager)
-- Installs Ollama for Windows
-- Installs `hermes-agent` + `hermes-offline`
-- Runs the interactive setup wizard (hardware detection → model pull → config)
-- Creates a **Desktop shortcut** and **Start Menu entry**
-- Optionally adds Ollama to Windows startup
-
-After install: double-click **Hermes (Offline)** on your desktop, or run `hermes-offline` in any terminal.
-
-**Diagnose issues anytime:**
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\check-windows.ps1
-# Checks Python, Ollama, hermes, config — green/yellow/red with fix instructions
-```
-
----
-
-### Linux / macOS — One Command
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/CodeHorizon-design/Hermes-Offline/main/scripts/setup-offline.sh)
-```
-
-### Manual Install (all platforms)
-
-```bash
-# 1. Install Ollama
-#    Windows: download https://ollama.com/download/OllamaSetup.exe
-#    Linux/macOS: curl -fsSL https://ollama.com/install.sh | sh
-
-# 2. Install hermes-agent + hermes-offline
-pip install hermes-agent
-pip install -e ./hermes-offline   # or: pip install hermes-offline
-
-# 3. Run the offline setup wizard
-hermes-offline-setup
-# → auto-detects hardware (RAM, VRAM, CPU)
-# → recommends best model for your machine
-# → pulls model (~1–20 GB depending on tier)
-# → writes config to  Windows: %USERPROFILE%\.hermes\config.yaml
-#                     Linux:   ~/.hermes/config.yaml
-# → sets up local TTS and transcription defaults
-
-# 4. Start Hermes
 hermes-offline
 ```
 
 ---
 
-## Hardware Tiers & Model Recommendations
+### Option B: PowerShell one-liner
 
-| Tier | RAM | VRAM | Recommended Model | Pull Command | Size |
-|------|-----|------|-------------------|-------------|------|
-| Ultra Low | 4 GB | 0 | qwen3:1.7b | `ollama pull qwen3:1.7b` | 1.1 GB |
-| Low | 8 GB | 0 | qwen3:4b | `ollama pull qwen3:4b` | 2.6 GB |
-| Mid | 16 GB | 0–8 GB | qwen3:8b | `ollama pull qwen3:8b` | 5.2 GB |
-| Good | 16 GB | 8 GB | qwen2.5-coder:14b | `ollama pull qwen2.5-coder:14b` | 9.0 GB |
-| Great | 32 GB | 16 GB | qwen3-coder:30b | `ollama pull qwen3-coder:30b` | 19 GB |
+Open **PowerShell** (not Command Prompt) and paste:
 
-**Tip:** The setup wizard auto-detects your hardware and picks the best model.
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass; irm https://raw.githubusercontent.com/CodeHorizon-design/Hermes-Offline/main/install-windows.ps1 | iex
+```
 
-### Why Qwen3?
-- Best-in-class tool/function calling at every size tier
-- Rarely hallucinates tool calls or drops arguments (critical for agentic use)
-- Native support for parallel tool calls
-- MIT license — fully free
+This runs the same full installer as Option A.
 
 ---
 
-## Session Cost Tracker (`--track`)
+### Option C: Step-by-step manual (Windows)
 
-Every response shows a dim status line with real-time resource usage, and a full summary prints when you quit.
+**Step 1 — Install Python 3.12**
 
-**Status line (after each assistant turn):**
+Check if you already have a compatible version:
+```powershell
+python --version
 ```
-  ↳ turn 4 · 312 tok out · 28.4 tok/s · 2 tools · ctx 3,932/16,384 (24%) · 5.5GB RAM · session 4m12s
+If it shows `3.11`, `3.12`, or `3.13` you're good. Otherwise:
+```powershell
+winget install --id Python.Python.3.12 --accept-source-agreements
 ```
+Or download from [python.org/downloads](https://www.python.org/downloads/). During install, tick **"Add Python to PATH"**.
 
-**Exit summary:**
-```
-────────────────────────────────────────────────────
-  Hermes Offline — Session Summary
-────────────────────────────────────────────────────
-  Model:         qwen3:8b
-  RAM in use:    ~5.5 GB
-  Session time:  12m34s
-  Turns:         8
-  Tool calls:    14
-  Prompt tokens: 28,432
-  Output tokens: 3,891
-  Total tokens:  32,323
-  Avg speed:     26.1 tok/s
-  Final ctx use: 53% of 16,384
-────────────────────────────────────────────────────
+**Step 2 — Install uv** (optional but faster)
+```powershell
+irm https://astral.sh/uv/install.ps1 | iex
 ```
 
-**In TUI mode** (`hermes-offline --tui`), a persistent footer bar updates every 2 seconds:
+**Step 3 — Install Ollama**
+```powershell
+winget install --id Ollama.Ollama --accept-source-agreements
 ```
-  [qwen3:8b]  [ctx 3,932/16,384 (24%)]  [5.5 GB RAM]  [28.4 tok/s]  [turns 4]  [tools 14]  [4m12s]
+Or download [OllamaSetup.exe](https://ollama.com/download/windows) and run it.
+
+After install, start the server:
+```powershell
+ollama serve
+```
+Leave this window open (or Ollama runs as a system tray app automatically).
+
+**Step 4 — Install hermes-agent and hermes-offline**
+```powershell
+pip install hermes-agent hermes-offline
+```
+Or with uv:
+```powershell
+uv pip install --system hermes-agent hermes-offline
 ```
 
-**CLI flags:**
+**Step 5 — Run the setup wizard**
+```powershell
+hermes-offline-setup
+```
+This detects your hardware, recommends a model, pulls it, and writes `%USERPROFILE%\.hermes\config.yaml`.
+
+**Step 6 — Start Hermes**
+```powershell
+hermes-offline
+```
+
+---
+
+## Installation — Linux
+
+### Option A: One-line installer
+
 ```bash
-hermes-offline                  # tracking on by default
-hermes-offline --no-track       # disable entirely
-hermes-offline --no-status      # suppress per-turn lines (summary only)
-hermes-offline --no-summary     # suppress exit summary (status lines only)
+bash <(curl -fsSL https://raw.githubusercontent.com/CodeHorizon-design/Hermes-Offline/main/scripts/setup-offline.sh)
 ```
 
-**Config (`~/.hermes/config.yaml`):**
+This installs everything interactively: Python check, uv, Ollama, hermes-agent, hermes-offline, optional tools (piper-tts, faster-whisper, sqlite-vec), and runs the setup wizard.
+
+---
+
+### Option B: Step-by-step manual (Linux)
+
+**Step 1 — Check Python**
+```bash
+python3 --version
+```
+Needs to be 3.11, 3.12, or 3.13. On Ubuntu/Debian:
+```bash
+sudo apt update && sudo apt install python3.12 python3.12-pip -y
+```
+On Fedora/RHEL:
+```bash
+sudo dnf install python3.12 -y
+```
+On Arch:
+```bash
+sudo pacman -S python
+```
+
+**Step 2 — Install uv** (recommended)
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source ~/.bashrc   # or restart your terminal
+```
+
+**Step 3 — Install Ollama**
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+Start the server (or it starts automatically as a systemd service):
+```bash
+ollama serve &
+```
+
+**Step 4 — Install packages**
+```bash
+uv pip install --system hermes-agent hermes-offline
+# or without uv:
+pip3 install hermes-agent hermes-offline
+```
+
+**Step 5 — Run setup wizard**
+```bash
+hermes-offline-setup
+```
+
+**Step 6 — Start**
+```bash
+hermes-offline
+```
+
+---
+
+## Installation — macOS
+
+### Option A: One-line installer
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/CodeHorizon-design/Hermes-Offline/main/scripts/setup-offline.sh)
+```
+
+---
+
+### Option B: Step-by-step manual (macOS)
+
+**Step 1 — Install Python 3.12**
+
+Check if you have a compatible version:
+```bash
+python3 --version
+```
+If not (or if it's the Apple-provided 3.9):
+```bash
+brew install python@3.12
+```
+No Homebrew? Install it first:
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
+**Step 2 — Install uv**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Step 3 — Install Ollama**
+
+Download the macOS app from [ollama.com/download](https://ollama.com/download) and drag it to Applications, or:
+```bash
+brew install ollama
+ollama serve &
+```
+
+**Step 4 — Install packages**
+```bash
+uv pip install --system hermes-agent hermes-offline
+```
+
+**Step 5 — Run setup wizard**
+```bash
+hermes-offline-setup
+```
+
+**Step 6 — Start**
+```bash
+hermes-offline
+```
+
+**Apple Silicon (M1/M2/M3/M4) note:** Ollama uses Metal GPU acceleration automatically. You get excellent performance even at 16 GB RAM (qwen3:8b runs at 30–50 tok/s on M2 16 GB).
+
+---
+
+## Manual installation (all platforms)
+
+If you prefer full control without the installer scripts:
+
+```bash
+# 1. Install Ollama
+#    Linux/macOS: curl -fsSL https://ollama.com/install.sh | sh
+#    Windows:     download https://ollama.com/download/windows
+
+# 2. Start Ollama
+ollama serve
+
+# 3. Pull a model matching your hardware (see tier table above)
+ollama pull qwen3:8b
+
+# 4. Install the Python packages
+pip install hermes-agent hermes-offline
+
+# 5. Run the setup wizard (writes config, applies offline defaults)
+hermes-offline-setup
+
+# 6. Start
+hermes-offline
+```
+
+### Installing from source
+
+```bash
+git clone https://github.com/CodeHorizon-design/Hermes-Offline.git
+cd Hermes-Offline/hermes-offline
+
+pip install hermes-agent
+pip install -e .           # editable install — changes take effect immediately
+
+hermes-offline-setup
+hermes-offline
+```
+
+### Installing with all optional features
+
+```bash
+pip install hermes-offline[all]
+# Includes: piper-tts, faster-whisper, sqlite-vec, dspy-ai
+```
+
+Or install optional groups individually:
+```bash
+pip install hermes-offline[tts]        # piper-tts (local voice output)
+pip install hermes-offline[whisper]    # faster-whisper (local transcription)
+pip install hermes-offline[embeddings] # sqlite-vec (semantic memory)
+pip install hermes-offline[evolution]  # dspy-ai (self-evolution)
+```
+
+---
+
+## Post-install verification
+
+After installation, run the parity test suite to confirm everything works on your machine:
+
+```bash
+hermes-offline-test-parity
+```
+
+For a quick smoke test only (30 seconds):
+```bash
+hermes-offline-test-parity --quick
+```
+
+For CI or scripting:
+```bash
+hermes-offline-test-parity --json
+# Exit 0 = all essential tests passed
+# Exit 1 = one or more essential tests failed
+# Exit 2 = Ollama not running
+```
+
+Check the status of all components:
+```bash
+hermes-offline-status
+```
+
+Run the hardware compatibility matrix (validates model recommendations for all 5 tiers — no models needed):
+```bash
+hermes-offline-compat-matrix
+```
+
+---
+
+## First run
+
+```bash
+hermes-offline              # interactive chat (default)
+hermes-offline --tui        # full terminal UI with panels and footer
+hermes-offline --think      # enable Qwen3 chain-of-thought reasoning
+```
+
+The first run applies all offline patches automatically. You'll see a status line after each response:
+```
+↳ turn 1 · 84 tok out · 28.4 tok/s · 1 tool · ctx 1,024/16,384 (6%) · 5.5GB RAM
+```
+
+---
+
+## Optional features
+
+### Local TTS (piper-tts)
+
+Offline text-to-speech, no internet required after install:
+```bash
+pip install piper-tts
+```
+The setup wizard or patcher auto-detects piper and sets it as the TTS backend.
+
+### Local transcription (faster-whisper)
+
+Offline voice input:
+```bash
+pip install faster-whisper
+```
+
+### Semantic memory (sqlite-vec)
+
+Adds vector search on top of keyword (FTS5) memory. Requires pulling the embedding model once (274 MB):
+```bash
+bash scripts/install-embeddings.sh
+# Pulls nomic-embed-text, installs sqlite-vec, enables hybrid memory in config
+```
+Or manually:
+```bash
+pip install sqlite-vec
+ollama pull nomic-embed-text
+```
+Then add to `~/.hermes/config.yaml`:
 ```yaml
+memory:
+  semantic_backend: sqlite_vec
+```
+
+### Local image generation
+
+If you have [ComfyUI](https://github.com/comfyanonymous/ComfyUI) or [Automatic1111](https://github.com/AUTOMATIC1111/stable-diffusion-webui) running locally, hermes-offline auto-detects them at startup and registers them as image generation backends. No extra configuration needed.
+
+### Self-hosted web search (SearXNG)
+
+For best-quality web search with no tracking:
+```bash
+docker run -d -p 8080:8080 searxng/searxng
+```
+hermes-offline auto-detects SearXNG and uses it as the primary search backend. DuckDuckGo and Wikipedia are always available as fallbacks.
+
+---
+
+## Configuration reference
+
+Config lives at:
+- **Linux / macOS:** `~/.hermes/config.yaml`
+- **Windows:** `%USERPROFILE%\.hermes\config.yaml`
+
+The setup wizard writes this file automatically. Here is the full offline configuration with all available options:
+
+```yaml
+# ── Provider ──────────────────────────────────────────────────────────────────
+provider: ollama-local
+endpoint: http://127.0.0.1:11434/v1
+api_key: ollama                      # any non-empty string works
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  default: qwen3:8b                  # change to match your hardware tier
+  # fallback: qwen3:4b               # used if default is not available
+
+# ── Context ───────────────────────────────────────────────────────────────────
+context:
+  compression_threshold: 0.70        # compress at 70% full (cloud default: 85%)
+  max_tool_output_chars: 2000        # cap large tool results to save tokens
+
+# ── Web search ────────────────────────────────────────────────────────────────
+web:
+  backend: duckduckgo                # duckduckgo | wikipedia | searxng | auto
+  searxng_url: http://127.0.0.1:8080 # only if running SearXNG locally
+
+# ── TTS ───────────────────────────────────────────────────────────────────────
+tts:
+  provider: piper                    # piper | neutts | none
+
+# ── Memory ────────────────────────────────────────────────────────────────────
+memory:
+  semantic_backend: sqlite_vec       # remove this line to use FTS5 only
+
+# ── Session cost tracker ──────────────────────────────────────────────────────
 tracker:
   enabled: true
-  status_line: true
-  summary_on_exit: true
-  show_tui_footer: true
+  status_line: true                  # show usage line after each response
+  summary_on_exit: true              # print summary when you quit
+  show_tui_footer: true              # live footer in --tui mode
+
+# ── Thinking mode (Qwen3 only) ────────────────────────────────────────────────
+think:
+  mode: auto                         # auto | always | never
+  show: false                        # show <think> blocks in terminal
+  threshold: 3                       # 1–10; lower = think more often
+
+# ── Self-evolution ────────────────────────────────────────────────────────────
+evolution:
+  mode: disabled                     # disabled | lightweight
+  evolve_every: 5                    # sessions between evolution runs
+  auto_evolve: true
+  population_size: 2
+  eval_budget: 5
+```
+
+See `config/offline-defaults.yaml` for the fully documented template with comments on every option.
+
+---
+
+## CLI reference
+
+### Core commands
+
+```bash
+hermes-offline                    # Start interactive offline session
+hermes-offline --tui              # Full terminal UI
+hermes-offline --think            # Force Qwen3 chain-of-thought every turn
+hermes-offline --auto-think       # Heuristic-based thinking (default)
+hermes-offline --no-think         # Disable thinking — fastest response
+hermes-offline --show-thinking    # Print <think> blocks while reasoning
+hermes-offline --no-track         # Disable session cost tracker
+hermes-offline --no-status        # Suppress per-turn status line
+hermes-offline --no-summary       # Suppress exit summary
+hermes-offline --evolution-mode=lightweight   # Override evolution mode
+```
+
+### Subcommands
+
+```bash
+hermes-offline update             # Check for updates and upgrade
+hermes-offline update --check     # Check only, don't upgrade
+hermes-offline update --dry-run   # Show what would change
+hermes-offline evolve             # Run DSPy self-evolution on session history
+hermes-offline evolve --reset     # Clear evolved program and start fresh
+hermes-offline evolve --dry-run   # Show what evolution would produce
+```
+
+### Utility commands
+
+```bash
+hermes-offline-setup              # Re-run the interactive setup wizard
+hermes-offline-status             # Show all component status (Rich table)
+hermes-offline-status --json      # Machine-readable JSON status
+hermes-offline-bench              # Benchmark tool-calling accuracy + speed
+hermes-offline-bench --model qwen3:8b
+hermes-offline-patch              # Apply patches standalone (diagnostic)
+hermes-offline-modelfile          # Generate a tier-tuned Modelfile
+hermes-offline-evolve             # Alias for 'hermes-offline evolve'
+```
+
+### Phase 6 — Testing & release tools
+
+```bash
+hermes-offline-test-parity                    # Full feature parity test suite
+hermes-offline-test-parity --quick            # Smoke test only (infra + tools)
+hermes-offline-test-parity --category search  # Filter by category
+hermes-offline-test-parity --json             # CI-friendly JSON output
+hermes-offline-test-parity --model qwen3:4b   # Override model
+
+hermes-offline-compat-matrix                  # Hardware compat matrix (all tiers)
+hermes-offline-compat-matrix --tier mid       # Specific tier only
+hermes-offline-compat-matrix --live           # Run real inference on detected tier
+hermes-offline-compat-matrix --json           # JSON output
+
+hermes-offline-hub-submit                     # Install HermesHub skill locally
+hermes-offline-hub-submit --dry-run           # Preview skill file content
+hermes-offline-hub-submit --validate          # Validate an existing skill file
+hermes-offline-hub-submit --manifest          # Also write manifest JSON
 ```
 
 ---
 
-## Qwen3 Thinking Mode (`--think`)
+## Thinking mode (Qwen3)
 
-Qwen3 has a built-in chain-of-thought reasoning mode activated by prepending `/think` to the user message. The model produces an internal `<think>...</think>` reasoning block before its final answer — improving accuracy on complex multi-step tasks by ~15–20%.
-
-The `hermes-offline` wrapper handles all of this transparently:
+Qwen3 models support chain-of-thought reasoning via `/think`. The model reasons internally before answering, improving accuracy on complex tasks by ~15–20%.
 
 ```bash
-hermes-offline --think        # force thinking on every turn
-hermes-offline --auto-think   # heuristic-based: only for complex tasks (default)
-hermes-offline --no-think     # disable — fastest response, simple tasks
-
-hermes-offline --think --show-thinking   # also display the <think> blocks in terminal
+hermes-offline --think           # thinking on every turn
+hermes-offline --auto-think      # only for complex prompts (default)
+hermes-offline --no-think        # off — fastest, for simple tasks
+hermes-offline --show-thinking   # also print the <think> blocks
 ```
 
 Or set permanently in `~/.hermes/config.yaml`:
-
 ```yaml
 think:
-  mode: auto      # auto | always | never
+  mode: auto     # auto | always | never
   show: false
-  threshold: 3    # 1-10 — lower = think more often
+  threshold: 3   # lower = think more often (range 1–10)
 ```
 
-**How it works:**
-- In `auto` mode, each user message is scored 0–10 for complexity (length, keywords like "refactor", "debug", "implement", multi-step markers)
-- If score ≥ threshold, `/think` is prepended; otherwise `/no_think`
-- `<think>...</think>` blocks are stripped before hermes tool parsers see the response — tool calling works identically
-- With `--show-thinking`, the reasoning block is displayed dimmed in the terminal
-
-**When to use `--think`:**
-| Task | Recommended |
-|------|-------------|
-| Simple file edits, quick questions | `--no-think` (faster) |
-| Code refactoring, debugging | `--auto-think` |
+| Task type | Recommended mode |
+|-----------|-----------------|
+| Quick questions, simple file edits | `--no-think` |
+| Code writing, debugging | `--auto-think` |
 | Architecture planning, complex workflows | `--think` |
-| Autonomous long-running tasks | `--think` |
+| Long autonomous tasks | `--think` |
 
 ---
 
-## Apply Optimized Modelfiles
+## Session cost tracker
 
-Pre-tuned Modelfiles with low temperature (0.1–0.2) for reliable tool calling:
-
-```bash
-# Create an agent-optimized version of qwen3:8b
-bash scripts/apply-modelfile.sh 8b
-# Creates model: qwen3-8b-agent
-
-# Then switch to it in Hermes
-hermes model  # → select qwen3-8b-agent
+Every response shows live resource usage:
+```
+↳ turn 4 · 312 tok out · 28.4 tok/s · 2 tools · ctx 3,932/16,384 (24%) · 5.5GB RAM · 4m12s
 ```
 
-Available Modelfiles: `8b`, `4b`, `1.7b`, `llama` (Llama 3.1 8B)
+Exit summary when you quit:
+```
+────────────────────────────────────────
+  Hermes Offline — Session Summary
+────────────────────────────────────────
+  Model:         qwen3:8b
+  Session time:  12m34s  |  Turns: 8
+  Tool calls:    14
+  Prompt tokens: 28,432  |  Output: 3,891
+  Avg speed:     26.1 tok/s
+  Peak RAM:      5.7 GB
+  Final ctx:     53% of 16,384
+────────────────────────────────────────
+```
+
+In `--tui` mode a persistent footer updates every 2 seconds:
+```
+[qwen3:8b]  [ctx 24%]  [5.5GB RAM]  [28.4 tok/s]  [turns 4]  [tools 14]  [4m12s]
+```
 
 ---
 
-## Enable Semantic Memory (Optional)
+## Optimized Modelfiles
 
-Adds vector search on top of the built-in FTS5 keyword memory:
+Pre-tuned Modelfiles set low temperature (0.1–0.2) and appropriate context windows for reliable tool-calling. Apply them once and switch to the resulting model in Hermes:
 
 ```bash
+# Generate and register a tuned model for your tier
+hermes-offline-modelfile --tier mid      # creates qwen3-8b-agent in Ollama
+hermes-offline-modelfile --tier low      # creates qwen3-4b-agent
+hermes-offline-modelfile --tier ultra_low
+
+# Or use the apply script directly
+bash scripts/apply-modelfile.sh 8b      # creates qwen3-8b-agent
+bash scripts/apply-modelfile.sh 4b
+bash scripts/apply-modelfile.sh 1.7b
+bash scripts/apply-modelfile.sh llama   # Llama 3.1 8B variant
+
+# Then switch to the tuned model in Hermes
+hermes model   # → select qwen3-8b-agent from the list
+```
+
+---
+
+## Semantic memory
+
+Adds vector search on top of built-in FTS5 keyword memory. Allows Hermes to find memories by meaning, not just exact words.
+
+```bash
+# Install everything at once
 bash scripts/install-embeddings.sh
-# Pulls nomic-embed-text via Ollama (274 MB)
-# Installs sqlite-vec Python package
-# Enables hybrid memory in config
+```
+
+Or manually:
+```bash
+# Pull the embedding model (274 MB, one-time)
+ollama pull nomic-embed-text
+
+# Install the vector extension
+pip install sqlite-vec
+
+# Enable in config
+echo "memory:" >> ~/.hermes/config.yaml
+echo "  semantic_backend: sqlite_vec" >> ~/.hermes/config.yaml
 ```
 
 ---
 
-## Benchmark Your Model
+## Self-evolution (DSPy)
+
+After several sessions, hermes-offline can compile your interaction history into an optimized few-shot prompt using DSPy BootstrapFewShot. This improves tool-calling accuracy over time without any manual work.
 
 ```bash
-hermes-offline-bench --model qwen3:8b
-# Tests tool-calling accuracy, speed (tok/s), and latency
-# Reports pass/fail for single calls, parallel calls, and "no tool needed" cases
+# Install DSPy
+pip install dspy-ai       # or: pip install hermes-offline[evolution]
+
+# Enable lightweight evolution in config
+# Add to ~/.hermes/config.yaml:
+#   evolution:
+#     mode: lightweight
+
+# Run manually
+hermes-offline evolve
+
+# Or it runs automatically at session end (when auto_evolve: true)
 ```
 
 ---
 
-## Feature Parity Tests (Phase 6)
+## Ollama performance tuning
 
-Verify that every tool category works correctly on your machine:
+Add these to `~/.bashrc`, `~/.zshrc`, or `~/.profile` for best performance:
 
 ```bash
-hermes-offline-test-parity           # full suite (essential + optional checks)
-hermes-offline-test-parity --quick   # fast smoke test (infrastructure only)
-hermes-offline-test-parity --json    # CI-friendly JSON output
-hermes-offline-test-parity --category tools   # filter by category
+export OLLAMA_FLASH_ATTENTION=1      # Halves KV cache memory (GPU)
+export OLLAMA_KV_CACHE_TYPE=q8_0    # 8-bit KV cache (GPU)
+export OLLAMA_NUM_PARALLEL=1        # One request at a time (low-end systems)
+export OLLAMA_KEEP_ALIVE=0          # Unload model after use (saves RAM)
 ```
 
-Categories tested: `infra`, `tools`, `model`, `search`, `memory`, `offline`, `tts`, `speech`, `evolution`, `vision`, `imagegen`, `release`.
+The setup wizard writes these to `~/.hermes/.env` automatically.
 
-Exit code `0` = all essential tests passed. Exit code `1` = essential test(s) failed. Exit code `2` = Ollama not running.
+**For CPU-only systems (no GPU):**
+```bash
+export OLLAMA_NUM_GPU=0             # Force CPU mode
+```
+
+**For Apple Silicon:**
+```bash
+# No extra env vars needed — Metal GPU is used automatically
+# Recommended: OLLAMA_FLASH_ATTENTION=1 for M1/M2/M3 with 8 GB RAM
+export OLLAMA_FLASH_ATTENTION=1
+```
 
 ---
 
-## Hardware Compatibility Matrix
-
-Validate the tier classification, model recommendations, and Modelfile generation for all 5 hardware tiers — without needing any models installed:
+## Updating
 
 ```bash
-hermes-offline-compat-matrix          # all 5 tiers, static checks only
-hermes-offline-compat-matrix --live   # also run live inference on your detected tier
-hermes-offline-compat-matrix --tier mid  # specific tier only
-hermes-offline-compat-matrix --json   # machine-readable output
+# Check for updates
+hermes-offline update --check
+
+# Update everything
+hermes-offline update
+
+# Update without running compat checks
+hermes-offline update --skip-compat
+
+# Force update even if already on latest
+hermes-offline update --force
+```
+
+Or update manually:
+```bash
+pip install --upgrade hermes-agent hermes-offline
 ```
 
 ---
 
-## Register as a HermesHub Community Skill
+## Troubleshooting
 
-Install the `hermes-offline-edition` skill file into your local skills directory, which teaches Hermes how to configure itself offline whenever asked:
+### Ollama not running
+
+**Symptom:** `Cannot connect to Ollama at 127.0.0.1:11434`
 
 ```bash
-hermes-offline-hub-submit             # writes to ~/.hermes/skills/
-hermes-offline-hub-submit --dry-run   # preview skill content
-hermes-offline-hub-submit --validate  # verify an existing skill file
+# Start Ollama
+ollama serve
+
+# Verify it's running
+curl http://127.0.0.1:11434/api/tags
 ```
 
-After install, you can ask Hermes: *"Set up offline mode"* or use `/offline` and it will walk you through the full setup.
+On Linux, Ollama may run as a systemd service:
+```bash
+sudo systemctl start ollama
+sudo systemctl enable ollama   # auto-start on boot
+```
+
+On Windows, check the system tray for the Ollama icon. If missing:
+```powershell
+ollama serve
+```
 
 ---
 
-## Configuration
+### No model installed
 
-Config lives at `~/.hermes/config.yaml`. Key offline settings:
-
-```yaml
-provider: ollama-local
-model:
-  default: qwen3:8b
-
-context:
-  compression_threshold: 0.70    # Compress at 70% (cloud default: 85%)
-  max_tool_output_chars: 2000    # Cap tool results for token efficiency
-
-web:
-  backend: duckduckgo            # Free, no key required
-
-tts:
-  provider: piper                # Local, no internet needed
-```
-
-See `config/offline-defaults.yaml` for the full commented template.
-
----
-
-## Ollama Performance Tips
-
-Set these environment variables for best performance:
+**Symptom:** `no models are available` or `model not found`
 
 ```bash
-# Add to ~/.bashrc or ~/.zshrc
-export OLLAMA_FLASH_ATTENTION=1      # 2x KV cache reduction (GPU)
-export OLLAMA_KV_CACHE_TYPE=q8_0    # 8-bit KV cache
-export OLLAMA_NUM_PARALLEL=1         # 1 request at a time (low-end)
-export OLLAMA_KEEP_ALIVE=0           # Unload after use (saves RAM)
+ollama list                    # see what's installed
+ollama pull qwen3:8b          # pull the recommended model
 ```
 
-These are written to `~/.hermes/.env` automatically by the setup wizard.
+---
+
+### `hermes-offline` command not found
+
+**Linux / macOS:**
+```bash
+# Check where pip installs scripts
+python3 -m site --user-base
+# Add <user-base>/bin to your PATH:
+export PATH="$HOME/.local/bin:$PATH"
+# Add this line to ~/.bashrc or ~/.zshrc to make it permanent
+```
+
+**Windows:**
+```powershell
+# Find Python's Scripts folder
+python -c "import sysconfig; print(sysconfig.get_path('scripts'))"
+# Add that path to your User PATH in System Properties → Environment Variables
+```
+
+---
+
+### Tool calls failing or model hallucinating tools
+
+1. **Lower the temperature** — use a Modelfile tuned for agentic use:
+   ```bash
+   hermes-offline-modelfile --tier mid
+   hermes model   # switch to qwen3-8b-agent
+   ```
+
+2. **Use a Qwen3 model** — they have the best tool-calling accuracy at every size:
+   ```bash
+   ollama pull qwen3:8b
+   ```
+
+3. **Run the benchmark** to measure accuracy on your setup:
+   ```bash
+   hermes-offline-bench --model qwen3:8b
+   ```
+
+4. **Enable thinking mode** for complex multi-step tasks:
+   ```bash
+   hermes-offline --think
+   ```
+
+---
+
+### Context fills up quickly / responses get cut off
+
+Increase `num_ctx` in your Modelfile, or switch to a tier with a larger context window:
+```bash
+hermes-offline-modelfile --tier good   # 32K context
+```
+
+Or temporarily set a larger context:
+```bash
+OLLAMA_NUM_CTX=32768 hermes-offline
+```
+
+---
+
+### Slow inference (< 5 tok/s)
+
+- Set `OLLAMA_FLASH_ATTENTION=1`
+- Use a quantized model (`q4_K_M` or `q5_K_M` variants)
+- Reduce `num_ctx` to 4096 or 8192
+- On CPU-only systems: `qwen3:4b` or `qwen3:1.7b` are much faster than 8b
+
+---
+
+### High RAM usage / out of memory
+
+```bash
+# Free model RAM when not in use
+export OLLAMA_KEEP_ALIVE=0
+
+# Use a smaller model
+ollama pull qwen3:4b
+
+# Reduce context size in Modelfile
+hermes-offline-modelfile --tier low    # 8K context
+```
+
+---
+
+### piper-tts install fails
+
+```bash
+# Try installing build dependencies first
+# Ubuntu/Debian:
+sudo apt install python3-dev portaudio19-dev build-essential -y
+pip install piper-tts
+
+# macOS:
+brew install portaudio
+pip install piper-tts
+```
+
+---
+
+### faster-whisper install fails
+
+```bash
+# Usually a CUDA/cuDNN version mismatch
+# CPU-only version (no GPU):
+pip install faster-whisper
+# Set device to CPU in config:
+# voice:
+#   whisper_device: cpu
+```
+
+---
+
+### Run diagnostics
+
+```bash
+hermes-offline-status           # full component status table
+hermes-offline-test-parity      # run full parity test suite
+hermes-offline-compat-matrix    # verify all 5 hardware tier configurations
+```
+
+---
+
+## vs. Cloud Hermes Agent
+
+| Aspect | Cloud (Nous Portal / OpenRouter) | Offline Edition |
+|--------|----------------------------------|----------------|
+| First token latency | ~800 ms (network round-trip) | ~400 ms (local, no network) |
+| Throughput | ~60 tok/s | 8–50 tok/s (hardware-dependent) |
+| Tool-calling accuracy | ~95% (Claude Sonnet) | ~85–88% (qwen3:8b) |
+| Cost | Per-token billing | Free (electricity only) |
+| Privacy | Prompts sent to cloud provider | 100% local, never leaves machine |
+| Offline use | ❌ Requires internet | ✅ Works with no connection |
+| All 71+ tools | ✅ | ✅ |
+| Memory system | ✅ | ✅ |
+| Skills / HermesHub | ✅ | ✅ |
 
 ---
 
@@ -350,32 +934,32 @@ These are written to `~/.hermes/.env` automatically by the setup wizard.
 hermes-offline/
 ├── hermes_offline/
 │   ├── __init__.py          # apply() — patches hermes-agent at import time
-│   ├── patch.py             # All patches: providers, compression, search, TTS, evolution
-│   ├── providers.py         # ollama-local provider registration
-│   ├── hardware.py          # Hardware detection + tier classification
-│   ├── local_search.py      # DuckDuckGo, Wikipedia, SearXNG (no key)
-│   ├── setup.py             # Interactive offline setup wizard
-│   ├── benchmark.py         # Tool-calling benchmark
-│   ├── detector.py          # SystemSnapshot: one-shot system capability probe
-│   ├── searxng.py           # SearXNG lifecycle (auto-start Docker/pip)
-│   ├── compressor.py        # Context compression hardening patches
-│   ├── tool_stream.py       # Smart per-type tool output truncation
+│   ├── entrypoint.py        # Main CLI wrapper (parses offline flags, delegates to hermes)
+│   ├── patch.py             # Orchestrates all 10 patch modules
+│   ├── providers.py         # Registers ollama-local as a hermes provider
+│   ├── hardware.py          # RAM/VRAM/CPU detection + tier classification
+│   ├── detector.py          # SystemSnapshot — one-shot system capability probe
+│   ├── setup.py             # Interactive setup wizard
+│   ├── benchmark.py         # Tool-calling accuracy + speed benchmark
+│   ├── compressor.py        # Context compression hardening
+│   ├── tool_stream.py       # Per-type smart tool output truncation
+│   ├── local_search.py      # DuckDuckGo, Wikipedia, SearXNG backends
+│   ├── searxng.py           # SearXNG auto-start + lifecycle management
 │   ├── modelfile.py         # Tier-aware Modelfile generator
+│   ├── tracker.py           # Session cost tracker (tok/s, RAM, ctx%)
+│   ├── tracker_tui.py       # TUI persistent footer
 │   ├── profiler.py          # RAM profiler (per-turn RSS, OOM warnings)
-│   ├── tracker.py           # Session cost tracker (tok/s, ctx%, RAM)
-│   ├── tracker_tui.py       # TUI footer integration
-│   ├── think.py             # Qwen3 chain-of-thought think-mode injection
+│   ├── think.py             # Qwen3 /think mode injection + block stripping
 │   ├── embeddings.py        # LocalEmbedder (nomic-embed-text via Ollama)
 │   ├── beam_memory.py       # BEAM tiered memory store (FTS5 + cosine)
 │   ├── memory.py            # SqliteVecMemoryProvider (MemoryProvider ABC)
-│   ├── dspy_local.py        # DSPy 2.4/2.5/2.6 Ollama wiring
-│   ├── evolution.py         # GEPA self-evolution (BootstrapFewShot)
-│   ├── updater.py           # hermes-offline update subcommand
-│   ├── entrypoint.py        # Main CLI entry point (wraps hermes)
-│   ├── test_parity.py       # Phase 6: Feature parity test suite
-│   ├── compat_matrix.py     # Phase 6: Hardware compat matrix
-│   ├── hermeshub_skill.py   # Phase 6: HermesHub skill manifest
-│   └── modelfiles/          # Optimized Ollama Modelfiles
+│   ├── dspy_local.py        # DSPy 2.4/2.5/2.6 version-compat Ollama wiring
+│   ├── evolution.py         # GEPA self-evolution engine (BootstrapFewShot)
+│   ├── updater.py           # Version check + upgrade logic
+│   ├── test_parity.py       # Feature parity test suite (Phase 6)
+│   ├── compat_matrix.py     # Hardware compatibility matrix (Phase 6)
+│   ├── hermeshub_skill.py   # HermesHub skill manifest + skill .md (Phase 6)
+│   └── modelfiles/
 │       ├── qwen3-8b-agent.Modelfile
 │       ├── qwen3-4b-agent.Modelfile
 │       ├── qwen3-1.7b-agent.Modelfile
@@ -383,35 +967,35 @@ hermes-offline/
 ├── config/
 │   └── offline-defaults.yaml    # Fully-documented config template
 ├── scripts/
-│   ├── setup-offline.sh         # One-liner Linux/macOS installer
-│   ├── apply-modelfile.sh       # Create agent-tuned Ollama model
-│   └── install-embeddings.sh    # Pull nomic-embed-text + sqlite-vec
-├── install-windows.ps1          # Windows one-click installer (PowerShell)
-├── install-windows.bat          # Windows double-click launcher
-└── pyproject.toml               # 14 CLI entry points, all optional deps
+│   ├── setup-offline.sh         # One-line Linux/macOS installer
+│   ├── apply-modelfile.sh       # Create a tuned Ollama model from Modelfile
+│   └── install-embeddings.sh    # Pull nomic-embed-text + install sqlite-vec
+├── install-windows.ps1          # Full Windows installer (PowerShell)
+├── install-windows.bat          # Double-click launcher for install-windows.ps1
+└── pyproject.toml               # 14 entry points, optional dep groups
 ```
 
----
-
-## vs. Cloud Hermes Agent
-
-| Aspect | Cloud (Nous Portal/OpenRouter) | Offline Edition |
-|--------|-------------------------------|----------------|
-| First token latency | ~800ms (network) | ~400ms (local, no network) |
-| Throughput | ~60 tok/s | 25–50 tok/s (hardware-dependent) |
-| Tool-calling accuracy | ~95% (Claude Sonnet) | ~85-88% (qwen3:8b) |
-| Cost | Per-token ($$) | Free (electricity) |
-| Privacy | Prompts sent to cloud | 100% local |
-| Offline use | ❌ | ✅ |
-| All features | ✅ | ✅ |
+**How patching works:** `hermes-offline` applies patches at Python import time, before any `hermes_cli` code runs. Each patch is wrapped in `try/except` — if hermes-agent's internals change, the patch degrades gracefully and the base agent continues working.
 
 ---
 
 ## Credits
 
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent) by Nous Research (MIT)
-- [Ollama](https://ollama.com) for local LLM serving
-- [Qwen3](https://huggingface.co/Qwen) by Alibaba Cloud (Apache 2.0)
-- [piper-tts](https://github.com/rhasspy/piper) by Rhasspy (MIT)
-- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) by SYSTRAN (MIT)
-- [sqlite-vec](https://github.com/asg017/sqlite-vec) by Alex Garcia (MIT/Apache 2.0)
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) by Nous Research — MIT License
+- [Ollama](https://ollama.com) — local LLM server
+- [Qwen3](https://huggingface.co/Qwen) by Alibaba Cloud — Apache 2.0
+- [piper-tts](https://github.com/rhasspy/piper) by Rhasspy — MIT License
+- [faster-whisper](https://github.com/SYSTRAN/faster-whisper) by SYSTRAN — MIT License
+- [sqlite-vec](https://github.com/asg017/sqlite-vec) by Alex Garcia — MIT / Apache 2.0
+- [DSPy](https://github.com/stanfordnlp/dspy) by Stanford NLP — MIT License
+- [uv](https://github.com/astral-sh/uv) by Astral — MIT / Apache 2.0
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE) for details.
+
+---
+
+*Problems? Open an issue at [github.com/CodeHorizon-design/Hermes-Offline/issues](https://github.com/CodeHorizon-design/Hermes-Offline/issues)*
