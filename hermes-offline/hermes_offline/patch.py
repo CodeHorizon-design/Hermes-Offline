@@ -478,9 +478,14 @@ def _patch_profiler() -> None:
         logger.debug("RAM profiler not applied: %s", exc)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """CLI entry point: print patch status."""
-    import sys
+    import argparse, sys
+    parser = argparse.ArgumentParser(
+        prog="hermes-offline-patch",
+        description="Apply hermes-offline patches and report status.",
+    )
+    parser.parse_args(argv)  # handles --help
     apply(verbose=True)
     print("\n[hermes-offline] All patches applied successfully.")
     sys.exit(0)

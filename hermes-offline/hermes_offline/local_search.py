@@ -115,13 +115,18 @@ def wikipedia_search(
     intro_only: bool = True,
 ) -> list[dict]:
     """
-    Search Wikipedia using the free REST API (no key required).
+    Search Wikipedia using the MediaWiki Action API (no key required).
     Returns list of {title, url, extract} dicts.
     """
-    # First, search for article titles
     search_url = (
-        "https://en.wikipedia.org/api/rest_v1/page/search/title?"
-        + urllib.parse.urlencode({"q": query, "limit": max_results})
+        "https://en.wikipedia.org/w/api.php?"
+        + urllib.parse.urlencode({
+            "action": "query",
+            "list": "search",
+            "srsearch": query,
+            "format": "json",
+            "srlimit": max_results,
+        })
     )
     try:
         req = urllib.request.Request(
@@ -135,10 +140,13 @@ def wikipedia_search(
         return []
 
     results = []
-    for page in data.get("pages", [])[:max_results]:
+    for page in data.get("query", {}).get("search", [])[:max_results]:
         title = page.get("title", "")
-        key = page.get("key", title.replace(" ", "_"))
-        extract = page.get("excerpt", "") or page.get("description", "")
+        key = title.replace(" ", "_")
+        snippet = page.get("snippet", "")
+        # Strip MediaWiki HTML tags from snippet
+        import re as _re
+        extract = _re.sub(r"<[^>]+>", "", snippet)
 
         if intro_only and not extract:
             extract = _wikipedia_intro(key) or ""

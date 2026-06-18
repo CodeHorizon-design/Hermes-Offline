@@ -397,12 +397,23 @@ def test_hardware_detection() -> tuple[bool, str]:
 
 def test_beam_memory_store() -> tuple[bool, str]:
     try:
-        import pathlib, tempfile
-        from hermes_offline.beam_memory import BEAMStore
+        import pathlib, tempfile, time as _time
+        from hermes_offline.beam_memory import BEAMStore, MemoryEntry
 
         with tempfile.TemporaryDirectory() as td:
             store = BEAMStore(pathlib.Path(td) / "test.db")
-            store.add("working", "Alice loves Python")
+            store.add(MemoryEntry(
+                tier="B",
+                content="Alice loves Python programming",
+                session_id="test-session",
+                created_at=int(_time.time()),
+            ))
+            store.add(MemoryEntry(
+                tier="E",
+                content="Yesterday we fixed a bug in the memory module",
+                session_id="test-session",
+                created_at=int(_time.time()),
+            ))
             results = store.search_fts("Python", limit=5)
             store.close()
 
@@ -506,13 +517,14 @@ def test_session_tracker() -> tuple[bool, str]:
             completion_tokens=128,
             duration_secs=5.0,
             model="qwen3:8b",
+            had_tool_calls=2,
         )
         session.record(turn)
         status = session.format_status_line()
         summary = session.format_summary()
-        if "tok/s" in status and "Session" in summary:
+        if "tok/s" in status and "Session Summary" in summary:
             return True, "Status line and summary formatted correctly"
-        return False, f"Unexpected format: {status!r}"
+        return False, f"Unexpected format: status={status!r}"
     except ImportError:
         return False, "hermes-offline not installed"
     except Exception as exc:
@@ -521,12 +533,13 @@ def test_session_tracker() -> tuple[bool, str]:
 
 def test_ram_profiler() -> tuple[bool, str]:
     try:
-        from hermes_offline.profiler import get_hardware_ram_gb, get_tier_label
-        ram = get_hardware_ram_gb()
-        tier = get_tier_label(ram)
-        if ram > 0 and tier:
-            return True, f"{ram:.1f} GB RAM, tier: {tier}"
-        return False, f"Unexpected values: ram={ram}, tier={tier!r}"
+        from hermes_offline.profiler import _total_ram_mb, _process_rss_mb, get_profile_report
+        total_mb = _total_ram_mb()
+        current_mb = _process_rss_mb()
+        report = get_profile_report()
+        if total_mb > 0 and isinstance(report, str):
+            return True, f"total={total_mb/1024:.1f}GB rss={current_mb:.0f}MB"
+        return False, f"Unexpected values: total_mb={total_mb}, report={repr(report)[:40]}"
     except ImportError:
         return False, "hermes-offline not installed"
     except Exception as exc:

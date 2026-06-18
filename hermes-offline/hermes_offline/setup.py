@@ -113,7 +113,13 @@ ollama_options:
 """
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    import argparse
+    parser = argparse.ArgumentParser(
+        prog="hermes-offline-setup",
+        description="Interactive setup wizard for Hermes Offline (installs Ollama, selects model, writes config).",
+    )
+    parser.parse_args(argv)  # handles --help; wizard takes no CLI flags
     console.print()
     console.print(Panel(
         "[bold cyan]Hermes Agent — Offline Setup Wizard[/bold cyan]\n"

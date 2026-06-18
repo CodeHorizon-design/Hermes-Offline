@@ -225,13 +225,13 @@ def run_benchmark(
     }
 
 
-def main() -> None:
+def main(argv: Optional[list[str]] = None) -> None:
     import argparse
     parser = argparse.ArgumentParser(description="Benchmark a local Ollama model for agentic use")
     parser.add_argument("--model",    default="qwen3:4b",                        help="Model name (default: qwen3:4b)")
     parser.add_argument("--endpoint", default="http://127.0.0.1:11434/v1",       help="Ollama endpoint")
     parser.add_argument("--api-key",  default="ollama",                           help="API key (default: ollama)")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     run_benchmark(args.model, args.endpoint, args.api_key)
 

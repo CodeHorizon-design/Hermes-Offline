@@ -82,9 +82,9 @@ def _parse_offline_flags(argv: list[str]) -> tuple[dict, list[str]]:
     return flags, remaining
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     # Intercept subcommands before any hermes_cli code runs
-    args = sys.argv[1:]
+    args = argv if argv is not None else sys.argv[1:]
 
     if args and args[0] == "update":
         from hermes_offline.updater import main as update_main
@@ -97,7 +97,7 @@ def main() -> None:
         return
 
     # Parse our custom flags before hermes sees argv
-    flags, clean_argv = _parse_offline_flags(sys.argv[1:])
+    flags, clean_argv = _parse_offline_flags(args)
 
     # Propagate --evolution-mode flag to env so patch.py picks it up
     if flags.get("evolution_mode"):
